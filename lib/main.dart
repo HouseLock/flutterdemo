@@ -1,9 +1,9 @@
 import 'dart:convert';
-
 import 'package:english_words/english_words.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
+import 'package:flutterdemo/pages/RegistrationPage.dart';
 
 void main() {
   runApp(MyApp());
@@ -131,7 +131,18 @@ class _MyHomePageState extends State<MyHomePage> {
             SizedBox(
               height: 130,
             ),
-            Text('Nuovo utente? Crea qui il tuo account')
+            Container(
+              child: TextButton(
+                onPressed: () {
+                  Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => RegistrationPage()));
+                },
+                child: Text(
+                  'Nuovo utente? Crea qui il tuo account',
+                  style: TextStyle(color: Colors.primaries.first, fontSize: 14),
+                ),
+              ),
+            ),
           ],
         ),
       ),
