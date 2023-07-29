@@ -1,11 +1,15 @@
 import 'dart:convert';
 import 'package:english_words/english_words.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutterdemo/pages/RegistrationPage.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized(); // Inizializza il binding
+  SystemChannels.textInput
+      .invokeMethod('TextInput.hide'); // Chiudi la tastiera al lancio dell'app
   runApp(MyApp());
 }
 
