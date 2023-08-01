@@ -269,6 +269,10 @@ class _RegistrationPageState extends State<RegistrationPage> {
                       setState(() {
                         _selectedSectors.add(sectorPressed);
                       });
+                    } else {
+                      setState(() {
+                        _selectedSectors.remove(sectorPressed);
+                      });
                     }
                   },
                 ),
