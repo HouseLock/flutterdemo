@@ -27,8 +27,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
   final TextEditingController _vatNumberController = TextEditingController();
   final TextEditingController _sdiController = TextEditingController();
 
-  List<Sector> _selectedSectors = [];
-
+  Set<Sector> _selectedSectors = Set<Sector>();
   User user = User();
 
   int _currentStep = 0;
@@ -60,23 +59,12 @@ class _RegistrationPageState extends State<RegistrationPage> {
         user.taxIDCode = _taxIDCodeController.text;
         user.vatNumber = _vatNumberController.text;
         user.sdi = _sdiController.text;
-
+        user.username = _emailController.text;
         // Print user data (for demonstration purposes)
         print(user.toJson());
       });
+      doRegister(user);
       // Here you can proceed with further actions, e.g., saving the user data or navigating to a new page.
-    }
-  }
-
-  void _onClientClick() {
-    if (_currAppRole != 0) {
-      setState(() => _currAppRole = 0);
-    }
-  }
-
-  void _onManutentorClick() {
-    if (_currAppRole != 1) {
-      setState(() => _currAppRole = 1);
     }
   }
 
@@ -258,23 +246,20 @@ class _RegistrationPageState extends State<RegistrationPage> {
               Padding(
                 padding: const EdgeInsets.only(
                     left: 15.0, right: 15.0, top: 15, bottom: 0),
-                //padding: EdgeInsets.symmetric(horizontal: 15),
-                child: MultiSelectChipDisplay<Sector>(
-                  items: _builderSectors(),
-                  //textStyle: _selectedSectors.contains(this) ? TextStyle(color: Colors.blue) : TextStyle(color: Colors.yellow),
-                  onTap: (sectorPressed) {
-                    if (!_selectedSectors
-                        .map((e) => e.sectorCode)
-                        .contains(sectorPressed.sectorCode)) {
-                      setState(() {
-                        _selectedSectors.add(sectorPressed);
-                      });
-                    } else {
-                      setState(() {
-                        _selectedSectors.remove(sectorPressed);
-                      });
-                    }
-                  },
+                child: Column(
+                  children: [
+                    ElevatedButton(
+                      onPressed: () => _openSectorMultiSelectDialog(context),
+                      child: Text('Settori'),
+                    ),
+                    Wrap(
+                      children: _selectedSectors
+                          .map((e) => Chip(
+                                label: Text(e.sectorCode),
+                              ))
+                          .toList(),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -350,17 +335,24 @@ class _RegistrationPageState extends State<RegistrationPage> {
           } else {
             List<Sector> sectors = snapshot.data!;
             _sectors = sectors;
-            return GestureDetector(
-              onTap: () {
-                // Chiudi la tastiera quando l'utente tocca al di fuori del campo di input
-                FocusScope.of(context).unfocus();
-              },
-              child: SingleChildScrollView(
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: stepper,
+            return Column(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () {
+                      // Chiudi la tastiera quando l'utente tocca al di fuori del campo di input
+                      FocusScope.of(context).unfocus();
+                    },
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.vertical,
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: stepper,
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+              ],
             );
           }
         },
@@ -400,5 +392,72 @@ class _RegistrationPageState extends State<RegistrationPage> {
       print('Request failed with status: ${response.statusCode}');
     }
     return List.empty();
+  }
+
+  void _openSectorMultiSelectDialog(BuildContext context) async {
+    final items = _builderSectors();
+    final selectedItems = _selectedSectors.toList();
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return Column(
+          children: [
+            Expanded(
+              child: AlertDialog(
+                title: Text('Settori'),
+                content: StatefulBuilder(
+                  builder: (context, setState) {
+                    return Column(
+                      children: [
+                        Expanded(
+                          child: MultiSelectDialog(
+                            separateSelectedItems: true,
+                            title: Text('Seleziona uno o più settori:'),
+                            searchHint: 'Cerca un settore...',
+                            items: items,
+                            searchable: true,
+                            cancelText: Text('Indietro'),
+                            initialValue: selectedItems,
+                            onConfirm: (selectedItems) {
+                              setState(() {
+                                _selectedSectors = selectedItems.toSet();
+                              });
+                            },
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void doRegister(User user) async {
+    const url = 'http://localhost:8080/api/auth/register';
+    //const urltest = 'https://randomuser.me/api/?results=3';
+    final uri = Uri.parse(url);
+    Map<String, dynamic> bodyPost = user.toJson();
+    Map<String, String> headersCall = {
+      'Access-Control-Allow-Origin': '*',
+      'Content-Type': 'application/json',
+      'Accept': '*/*'
+    };
+    final response =
+        await http.post(uri, body: jsonEncode(bodyPost), headers: headersCall);
+
+    if (response.statusCode == 200) {
+      final body = response.body;
+      final json = jsonDecode(body);
+      //users = json['results'];
+    } else {
+      // Request failed, handle the error
+      print('Request failed with status: ${response.statusCode}');
+    }
   }
 }

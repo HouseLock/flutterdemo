@@ -7,6 +7,7 @@ class User {
   String refreshToken;
   String name;
   String surname;
+  String username;
   String email;
   String password;
   int appRole;
@@ -22,6 +23,7 @@ class User {
     this.refreshToken = '',
     this.name = '',
     this.surname = '',
+    this.username = '',
     this.email = '',
     this.password = '',
     this.appRole = 0,
@@ -39,6 +41,7 @@ class User {
       'refreshToken': refreshToken,
       'name': name,
       'surname': surname,
+      'username': username,
       'email': email,
       'password': password,
       'appRole': appRole,
