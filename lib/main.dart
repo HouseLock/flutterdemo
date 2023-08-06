@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:english_words/english_words.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutterdemo/pages/RedirectPage.dart';
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutterdemo/pages/RegistrationPage.dart';
@@ -28,6 +29,10 @@ class MyApp extends StatelessWidget {
         ),
         home: MyHomePage(),
         debugShowCheckedModeBanner: false,
+        routes: {
+          '/redirect': (context) => RedirectPage(),
+          '/home': (context) => MyHomePage(),
+        },
       ),
     );
   }

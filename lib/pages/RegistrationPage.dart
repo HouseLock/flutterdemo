@@ -15,8 +15,12 @@ class RegistrationPage extends StatefulWidget {
 class MyAppState extends ChangeNotifier {}
 
 class _RegistrationPageState extends State<RegistrationPage> {
+  final _formKey = GlobalKey<FormState>();
+
   final TextEditingController _nameController = TextEditingController();
+  FocusNode _nameFocusNode = FocusNode();
   final TextEditingController _surnameController = TextEditingController();
+  final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController =
@@ -59,12 +63,17 @@ class _RegistrationPageState extends State<RegistrationPage> {
         user.taxIDCode = _taxIDCodeController.text;
         user.vatNumber = _vatNumberController.text;
         user.sdi = _sdiController.text;
-        user.username = _emailController.text;
+        user.username = _usernameController.text;
         // Print user data (for demonstration purposes)
         print(user.toJson());
       });
-      doRegister(user);
-      // Here you can proceed with further actions, e.g., saving the user data or navigating to a new page.
+      if (_formKey.currentState!.validate()) {
+        print('Il nome inserito ');
+        doRegister(user);
+        Navigator.pushNamed(context, '/redirect');
+      } else {
+        _nameFocusNode.requestFocus();
+      }
     }
   }
 
@@ -151,13 +160,21 @@ class _RegistrationPageState extends State<RegistrationPage> {
                 padding: const EdgeInsets.only(
                     left: 15.0, right: 15.0, top: 15, bottom: 0),
                 //padding: EdgeInsets.symmetric(horizontal: 15),
-                child: TextField(
+                child: TextFormField(
                   decoration: InputDecoration(
                     border: OutlineInputBorder(),
                     labelText: 'Nome',
                     hintText: '',
                   ),
                   controller: _nameController,
+                  focusNode: _nameFocusNode,
+                  validator: (value) {
+                    // La funzione validator viene eseguita quando si tenta di inviare i dati del modulo.
+                    if (value == null || value.isEmpty) {
+                      return 'Questo campo è obbligatorio'; // Messaggio di errore se il campo è vuoto
+                    }
+                    return null; // Il campo è valido, nessun messaggio di errore
+                  },
                 ),
               ),
               Padding(
@@ -277,6 +294,18 @@ class _RegistrationPageState extends State<RegistrationPage> {
                 child: TextField(
                   decoration: InputDecoration(
                       border: OutlineInputBorder(),
+                      labelText: 'Username',
+                      hintText: ''),
+                  controller: _usernameController,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(
+                    left: 15.0, right: 15.0, top: 15, bottom: 0),
+                //padding: EdgeInsets.symmetric(horizontal: 15),
+                child: TextField(
+                  decoration: InputDecoration(
+                      border: OutlineInputBorder(),
                       labelText: 'Email',
                       hintText: ''),
                   controller: _emailController,
@@ -319,43 +348,46 @@ class _RegistrationPageState extends State<RegistrationPage> {
       appBar: AppBar(
         title: Text('Registrazione'),
       ),
-      body: FutureBuilder<List<Sector>>(
-        future: getSectors(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            // Visualizza uno spinner di caricamento durante l'attesa del Future
-            return Center(
-              child: CircularProgressIndicator(),
-            );
-          } else if (snapshot.hasError) {
-            // Gestisce gli errori se si verificano durante il recupero dei dati
-            return Center(
-              child: Text('Error: ${snapshot.error}'),
-            );
-          } else {
-            List<Sector> sectors = snapshot.data!;
-            _sectors = sectors;
-            return Column(
-              children: [
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () {
-                      // Chiudi la tastiera quando l'utente tocca al di fuori del campo di input
-                      FocusScope.of(context).unfocus();
-                    },
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.vertical,
-                      child: Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: stepper,
+      body: Form(
+        key: _formKey,
+        child: FutureBuilder<List<Sector>>(
+          future: getSectors(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              // Visualizza uno spinner di caricamento durante l'attesa del Future
+              return Center(
+                child: CircularProgressIndicator(),
+              );
+            } else if (snapshot.hasError) {
+              // Gestisce gli errori se si verificano durante il recupero dei dati
+              return Center(
+                child: Text('Error: ${snapshot.error}'),
+              );
+            } else {
+              List<Sector> sectors = snapshot.data!;
+              _sectors = sectors;
+              return Column(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        // Chiudi la tastiera quando l'utente tocca al di fuori del campo di input
+                        FocusScope.of(context).unfocus();
+                      },
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.vertical,
+                        child: Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: stepper,
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
-            );
-          }
-        },
+                ],
+              );
+            }
+          },
+        ),
       ),
     );
   }
@@ -367,31 +399,40 @@ class _RegistrationPageState extends State<RegistrationPage> {
   }
 
   Future<List<Sector>> getSectors() async {
-    const url = 'http://localhost:8080/api/sector/findall';
-    final uri = Uri.parse(url);
-    Map<String, String> headersCall = {
-      'Access-Control-Allow-Origin': '*',
-      'Content-Type': 'application/json',
-      'Accept': '*/*'
-    };
-    final response = await http.get(uri, headers: headersCall);
+    if (_sectors.isEmpty) {
+      const url = 'http://localhost:8080/api/sector/findall';
+      final uri = Uri.parse(url);
+      Map<String, String> headersCall = {
+        'Access-Control-Allow-Origin': '*',
+        'Content-Type': 'application/json',
+        'Accept': '*/*'
+      };
 
-    if (response.statusCode == 200) {
-      final body = response.body;
-      final json = jsonDecode(body);
-      List<Sector> sectors = [];
-      for (final item in json) {
-        sectors.add(Sector(
-            sectorId: item['id'],
-            sectorCode: item['code'],
-            sectorDescription: item['description']));
+      try {
+        final response = await http.get(uri, headers: headersCall);
+        if (response.statusCode == 200) {
+          final body = response.body;
+          final json = jsonDecode(body);
+          List<Sector> sectors = [];
+          for (final item in json) {
+            sectors.add(Sector(
+                sectorId: item['id'],
+                sectorCode: item['code'],
+                sectorDescription: item['description']));
+          }
+          return sectors;
+        } else {
+          // Request failed, handle the error
+          print('Request failed with status: ${response.statusCode}');
+          return List.empty();
+        }
+      } on Exception {
+        print("Generic error");
+        _sectors = List.empty();
       }
-      return sectors;
-    } else {
-      // Request failed, handle the error
-      print('Request failed with status: ${response.statusCode}');
+      return _sectors;
     }
-    return List.empty();
+    return _sectors;
   }
 
   void _openSectorMultiSelectDialog(BuildContext context) async {
@@ -440,7 +481,6 @@ class _RegistrationPageState extends State<RegistrationPage> {
 
   void doRegister(User user) async {
     const url = 'http://localhost:8080/api/auth/register';
-    //const urltest = 'https://randomuser.me/api/?results=3';
     final uri = Uri.parse(url);
     Map<String, dynamic> bodyPost = user.toJson();
     Map<String, String> headersCall = {
@@ -448,16 +488,20 @@ class _RegistrationPageState extends State<RegistrationPage> {
       'Content-Type': 'application/json',
       'Accept': '*/*'
     };
-    final response =
-        await http.post(uri, body: jsonEncode(bodyPost), headers: headersCall);
+    try {
+      final response = await http.post(uri,
+          body: jsonEncode(bodyPost), headers: headersCall);
 
-    if (response.statusCode == 200) {
-      final body = response.body;
-      final json = jsonDecode(body);
-      //users = json['results'];
-    } else {
-      // Request failed, handle the error
-      print('Request failed with status: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        final body = response.body;
+        final json = jsonDecode(body);
+        //users = json['results'];
+      } else {
+        // Request failed, handle the error
+        print('Request failed with status: ${response.statusCode}');
+      }
+    } on Exception {
+      print("Generic error");
     }
   }
 }
