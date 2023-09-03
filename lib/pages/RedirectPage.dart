@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutterdemo/AppConst.dart';
 
 class RedirectPage extends StatelessWidget {
   final int _secondsToWait = 5;
@@ -6,7 +7,7 @@ class RedirectPage extends StatelessWidget {
   Widget build(BuildContext context) {
     // Delay navigation to the home page by 15 seconds
     Future.delayed(Duration(seconds: _secondsToWait), () {
-      Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+      Navigator.pushNamedAndRemoveUntil(context, ROUTE_HOME, (route) => false);
     });
 
     return Scaffold(
@@ -24,7 +25,7 @@ class RedirectPage extends StatelessWidget {
             ElevatedButton(
                 onPressed: () {
                   Navigator.pushNamedAndRemoveUntil(
-                      context, '/home', (route) => false);
+                      context, ROUTE_HOME, (route) => false);
                 },
                 child: Text('Login'))
           ],

@@ -1,11 +1,19 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutterdemo/main.dart';
 import 'package:flutterdemo/models/Sector.dart';
 import 'package:flutterdemo/models/User.dart';
 import 'package:flutter/services.dart';
+import 'package:flutterdemo/pages/RedirectPage.dart';
 import 'package:multi_select_flutter/multi_select_flutter.dart';
 import 'package:http/http.dart' as http;
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
+import '../AppConst.dart';
+
+final storage = FlutterSecureStorage();
 
 class RegistrationPage extends StatefulWidget {
   @override
@@ -15,10 +23,18 @@ class RegistrationPage extends StatefulWidget {
 class MyAppState extends ChangeNotifier {}
 
 class _RegistrationPageState extends State<RegistrationPage> {
-  final _formKey = GlobalKey<FormState>();
+  final _formKeyStep1 = GlobalKey<FormState>();
+  final _formKeyStep2 = GlobalKey<FormState>();
+  final _formKeyStep3 = GlobalKey<FormState>();
+  final _formKeyStep4 = GlobalKey<FormState>();
+
+  final _nameFocusNode = FocusNode();
+  final _passwordFocusNode = FocusNode();
+  final _confirmPasswordFocusNode = FocusNode();
+
+  var _passwordErrorMessage = '';
 
   final TextEditingController _nameController = TextEditingController();
-  FocusNode _nameFocusNode = FocusNode();
   final TextEditingController _surnameController = TextEditingController();
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
@@ -37,7 +53,9 @@ class _RegistrationPageState extends State<RegistrationPage> {
   int _currentStep = 0;
   List<Step> _steps = List.empty();
   int _currAppRole = -1;
-
+  bool _submitted = false;
+  bool _isPasswordVisible = false;
+  bool _isConfirmPasswordVisible = false;
   List<Sector> _sectors = List.empty();
 
   void _onStepTabbed(int stepSelected) {
@@ -48,10 +66,15 @@ class _RegistrationPageState extends State<RegistrationPage> {
     }
   }
 
-  void _onStepContinue() {
+  Future<void> _onStepContinue() async {
     if (_currentStep < _steps.length - 1) {
       setState(() => _currentStep += 1);
     } else {
+      // Recupera il token di accesso
+      final accessToken = await storage.read(key: 'access_token');
+
+      // Recupera il token di aggiornamento
+      final refreshToken = await storage.read(key: 'refresh_token');
       // Final step: Register user
       setState(() {
         user.name = _nameController.text;
@@ -67,12 +90,13 @@ class _RegistrationPageState extends State<RegistrationPage> {
         // Print user data (for demonstration purposes)
         print(user.toJson());
       });
-      if (_formKey.currentState!.validate()) {
+      _submitted = true;
+      if (_formKeyStep4.currentState!.validate()) {
         print('Il nome inserito ');
-        doRegister(user);
-        Navigator.pushNamed(context, '/redirect');
+        //doRegister(user);
+        Navigator.pushNamed(context, ROUTE_REDIRECT);
       } else {
-        _nameFocusNode.requestFocus();
+        print('here');
       }
     }
   }
@@ -154,55 +178,59 @@ class _RegistrationPageState extends State<RegistrationPage> {
             subtitle: Text('Ruolo')),
         Step(
           title: Text('Step 2'),
-          content: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(
-                    left: 15.0, right: 15.0, top: 15, bottom: 0),
-                //padding: EdgeInsets.symmetric(horizontal: 15),
-                child: TextFormField(
-                  decoration: InputDecoration(
-                    border: OutlineInputBorder(),
-                    labelText: 'Nome',
-                    hintText: '',
+          content: Form(
+            key: _formKeyStep1,
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(
+                      left: 15.0, right: 15.0, top: 15, bottom: 0),
+                  //padding: EdgeInsets.symmetric(horizontal: 15),
+                  child: TextFormField(
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(),
+                      labelText: 'Nome',
+                      hintText: '',
+                    ),
+                    controller: _nameController,
+                    focusNode: _nameFocusNode,
+                    validator: (value) {
+                      // La funzione validator viene eseguita quando si tenta di inviare i dati del modulo.
+                      if (value == null || value.isEmpty) {
+                        _nameFocusNode.requestFocus();
+                        return 'Questo campo è obbligatorio'; // Messaggio di errore se il campo è vuoto
+                      }
+                      return null; // Il campo è valido, nessun messaggio di errore
+                    },
                   ),
-                  controller: _nameController,
-                  focusNode: _nameFocusNode,
-                  validator: (value) {
-                    // La funzione validator viene eseguita quando si tenta di inviare i dati del modulo.
-                    if (value == null || value.isEmpty) {
-                      return 'Questo campo è obbligatorio'; // Messaggio di errore se il campo è vuoto
-                    }
-                    return null; // Il campo è valido, nessun messaggio di errore
-                  },
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(
-                    left: 15.0, right: 15.0, top: 15, bottom: 0),
-                //padding: EdgeInsets.symmetric(horizontal: 15),
-                child: TextField(
-                  decoration: InputDecoration(
-                      border: OutlineInputBorder(),
-                      labelText: 'Cognome',
-                      hintText: ''),
-                  controller: _surnameController,
+                Padding(
+                  padding: const EdgeInsets.only(
+                      left: 15.0, right: 15.0, top: 15, bottom: 0),
+                  //padding: EdgeInsets.symmetric(horizontal: 15),
+                  child: TextField(
+                    decoration: InputDecoration(
+                        border: OutlineInputBorder(),
+                        labelText: 'Cognome',
+                        hintText: ''),
+                    controller: _surnameController,
+                  ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(
-                    left: 15.0, right: 15.0, top: 15, bottom: 0),
-                //padding: EdgeInsets.symmetric(horizontal: 15),
-                child: TextField(
-                  obscureText: true,
-                  decoration: InputDecoration(
-                      border: OutlineInputBorder(),
-                      labelText: 'Codice Fiscale',
-                      hintText: ''),
-                  controller: _taxIDCodeController,
+                Padding(
+                  padding: const EdgeInsets.only(
+                      left: 15.0, right: 15.0, top: 15, bottom: 0),
+                  //padding: EdgeInsets.symmetric(horizontal: 15),
+                  child: TextField(
+                    obscureText: true,
+                    decoration: InputDecoration(
+                        border: OutlineInputBorder(),
+                        labelText: 'Codice Fiscale',
+                        hintText: ''),
+                    controller: _taxIDCodeController,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           subtitle: Text('Dati personali'),
         ),
@@ -285,59 +313,136 @@ class _RegistrationPageState extends State<RegistrationPage> {
         ),
         Step(
           title: Text('Step 4'),
-          content: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(
-                    left: 15.0, right: 15.0, top: 15, bottom: 0),
-                //padding: EdgeInsets.symmetric(horizontal: 15),
-                child: TextField(
-                  decoration: InputDecoration(
-                      border: OutlineInputBorder(),
-                      labelText: 'Username',
-                      hintText: ''),
-                  controller: _usernameController,
+          content: Form(
+            key: _formKeyStep4,
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(
+                      left: 15.0, right: 15.0, top: 15, bottom: 0),
+                  //padding: EdgeInsets.symmetric(horizontal: 15),
+                  child: TextField(
+                    decoration: InputDecoration(
+                        border: OutlineInputBorder(),
+                        labelText: 'Username',
+                        hintText: ''),
+                    controller: _usernameController,
+                  ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(
-                    left: 15.0, right: 15.0, top: 15, bottom: 0),
-                //padding: EdgeInsets.symmetric(horizontal: 15),
-                child: TextField(
-                  decoration: InputDecoration(
-                      border: OutlineInputBorder(),
-                      labelText: 'Email',
-                      hintText: ''),
-                  controller: _emailController,
+                Padding(
+                  padding: const EdgeInsets.only(
+                      left: 15.0, right: 15.0, top: 15, bottom: 0),
+                  //padding: EdgeInsets.symmetric(horizontal: 15),
+                  child: TextField(
+                    decoration: InputDecoration(
+                        border: OutlineInputBorder(),
+                        labelText: 'Email',
+                        hintText: ''),
+                    controller: _emailController,
+                  ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(
-                    left: 15.0, right: 15.0, top: 15, bottom: 0),
-                //padding: EdgeInsets.symmetric(horizontal: 15),
-                child: TextField(
-                  obscureText: true,
-                  decoration: InputDecoration(
+                Padding(
+                  padding: const EdgeInsets.only(
+                      left: 15.0, right: 15.0, top: 15, bottom: 0),
+                  //padding: EdgeInsets.symmetric(horizontal: 15),
+                  child: TextFormField(
+                    obscureText: !_isPasswordVisible,
+                    decoration: InputDecoration(
                       border: OutlineInputBorder(),
                       labelText: 'Password',
-                      hintText: ''),
-                  controller: _passwordController,
+                      hintText: '',
+                      suffixIcon: Row(
+                        mainAxisAlignment:
+                            MainAxisAlignment.end, // Allinea a destra
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _isPasswordVisible = !_isPasswordVisible;
+                              });
+                            },
+                            child: Tooltip(
+                              message: _isPasswordVisible
+                                  ? 'Nascondi password'
+                                  : 'Mostra password',
+                              child: Icon(
+                                _isPasswordVisible
+                                    ? Icons.visibility
+                                    : Icons.visibility_off,
+                              ),
+                            ),
+                          ),
+                          Tooltip(
+                            message: 'Requisiti Password:\n'
+                                '- Minimo 8 caratteri\n'
+                                '- Massimo 20 caratteri\n'
+                                '- Almeno una lettera maiuscola\n'
+                                '- Almeno una lettera minuscola\n'
+                                '- Almeno un numero\n'
+                                '- Almeno un carattere speciale',
+                            child: IconButton(
+                              icon: Icon(Icons.help_outline),
+                              onPressed: () {},
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    controller: _passwordController,
+                    validator: validatePassword,
+                    focusNode: _passwordFocusNode,
+                  ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(
-                    left: 15.0, right: 15.0, top: 15, bottom: 0),
-                //padding: EdgeInsets.symmetric(horizontal: 15),
-                child: TextField(
-                  obscureText: true,
-                  decoration: InputDecoration(
+                if (_formKeyStep4.currentState != null &&
+                    !_formKeyStep4.currentState!.validate())
+                  Text(
+                    _passwordErrorMessage,
+                    style: TextStyle(color: Colors.red),
+                  ),
+                Padding(
+                  padding: const EdgeInsets.only(
+                      left: 15.0, right: 15.0, top: 15, bottom: 0),
+                  //padding: EdgeInsets.symmetric(horizontal: 15),
+                  child: TextFormField(
+                    obscureText: !_isConfirmPasswordVisible,
+                    decoration: InputDecoration(
                       border: OutlineInputBorder(),
                       labelText: 'Conferma password',
-                      hintText: ''),
-                  controller: _confirmPasswordController,
+                      hintText: '',
+                      suffixIcon: Row(
+                        mainAxisAlignment:
+                            MainAxisAlignment.end, // Allinea a destra
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _isConfirmPasswordVisible =
+                                    !_isConfirmPasswordVisible;
+                              });
+                            },
+                            child: Tooltip(
+                              message: _isConfirmPasswordVisible
+                                  ? 'Nascondi password'
+                                  : 'Mostra password',
+                              child: Icon(
+                                _isConfirmPasswordVisible
+                                    ? Icons.visibility
+                                    : Icons.visibility_off,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    controller: _confirmPasswordController,
+                    validator: validatePassword,
+                    focusNode: _confirmPasswordFocusNode,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           subtitle: Text('Dati generali'),
         ),
@@ -348,46 +453,43 @@ class _RegistrationPageState extends State<RegistrationPage> {
       appBar: AppBar(
         title: Text('Registrazione'),
       ),
-      body: Form(
-        key: _formKey,
-        child: FutureBuilder<List<Sector>>(
-          future: getSectors(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              // Visualizza uno spinner di caricamento durante l'attesa del Future
-              return Center(
-                child: CircularProgressIndicator(),
-              );
-            } else if (snapshot.hasError) {
-              // Gestisce gli errori se si verificano durante il recupero dei dati
-              return Center(
-                child: Text('Error: ${snapshot.error}'),
-              );
-            } else {
-              List<Sector> sectors = snapshot.data!;
-              _sectors = sectors;
-              return Column(
-                children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () {
-                        // Chiudi la tastiera quando l'utente tocca al di fuori del campo di input
-                        FocusScope.of(context).unfocus();
-                      },
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.vertical,
-                        child: Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: stepper,
-                        ),
+      body: FutureBuilder<List<Sector>>(
+        future: getSectors(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            // Visualizza uno spinner di caricamento durante l'attesa del Future
+            return Center(
+              child: CircularProgressIndicator(),
+            );
+          } else if (snapshot.hasError) {
+            // Gestisce gli errori se si verificano durante il recupero dei dati
+            return Center(
+              child: Text('Error: ${snapshot.error}'),
+            );
+          } else {
+            List<Sector> sectors = snapshot.data!;
+            _sectors = sectors;
+            return Column(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () {
+                      // Chiudi la tastiera quando l'utente tocca al di fuori del campo di input
+                      FocusScope.of(context).unfocus();
+                    },
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.vertical,
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: stepper,
                       ),
                     ),
                   ),
-                ],
-              );
-            }
-          },
-        ),
+                ),
+              ],
+            );
+          }
+        },
       ),
     );
   }
@@ -400,7 +502,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
 
   Future<List<Sector>> getSectors() async {
     if (_sectors.isEmpty) {
-      const url = 'http://localhost:8080/api/sector/findall';
+      const url = '${API_URL}api/sector/findall';
       final uri = Uri.parse(url);
       Map<String, String> headersCall = {
         'Access-Control-Allow-Origin': '*',
@@ -427,7 +529,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
           return List.empty();
         }
       } on Exception {
-        print("Generic error");
+        print("Generic error - getSectors");
         _sectors = List.empty();
       }
       return _sectors;
@@ -480,7 +582,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
   }
 
   void doRegister(User user) async {
-    const url = 'http://localhost:8080/api/auth/register';
+    const url = '${API_URL}api/auth/register';
     final uri = Uri.parse(url);
     Map<String, dynamic> bodyPost = user.toJson();
     Map<String, String> headersCall = {
@@ -501,7 +603,30 @@ class _RegistrationPageState extends State<RegistrationPage> {
         print('Request failed with status: ${response.statusCode}');
       }
     } on Exception {
-      print("Generic error");
+      print("Generic error - doRegister");
     }
+  }
+
+  String? validatePassword(String? value) {
+    if (!_submitted) return null;
+    String error = '';
+    if (value == null || value.isEmpty) {
+      error = 'Inserisci una password';
+      _passwordErrorMessage = error;
+      return error;
+    }
+    if (!isPasswordValid(value)) {
+      error =
+          'La password deve essere di minimo 8 caratteri, contenere almeno una lettera maiuscola, una minuscola, un numero e un carattere speciale.';
+      _passwordErrorMessage = error;
+      return error;
+    }
+    return null; // The value is valid
+  }
+
+  bool isPasswordValid(String password) {
+    final passwordRegex = RegExp(
+        r'^(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[!@#\$%^&*(),.?\":{}|<>])(?=.{8,20}).*$');
+    return passwordRegex.hasMatch(password);
   }
 }
