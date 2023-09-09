@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:english_words/english_words.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutterdemo/models/Sector.dart';
+import 'package:flutterdemo/pages/ActivationPage.dart';
 import 'package:flutterdemo/pages/ForgotPasswordPage.dart';
 import 'package:flutterdemo/pages/RedirectPage.dart';
 import 'package:flutterdemo/pages/ResetPasswordPage.dart';
@@ -53,12 +55,27 @@ class MyApp extends StatelessWidget {
             );
           }
 
+          if (settings.name!.startsWith(ROUTE_ACTIVATION)) {
+            // Estrarre i parametri dalla query dell'URL
+            final uri = Uri.parse(settings.name as String);
+            final dataConfirm = uri.queryParameters['dataConfirm'];
+
+            return MaterialPageRoute(
+              builder: (context) => ActivationPage(
+                dataConfirm: dataConfirm,
+              ),
+            );
+          }
+
           return null; // Gestisci le altre rotte qui se necessario
         },
         routes: {
           ROUTE_HOME: (context) => MyHomePage(),
-          ROUTE_REDIRECT: (context) => RedirectPage(),
+          ROUTE_REDIRECT: (context) => RedirectPage(fromPage: ''),
           ROUTE_REGISTER: (context) => RegistrationPage(),
+          ROUTE_ACTIVATION: (context) => ActivationPage(
+                dataConfirm: '',
+              ),
           ROUTE_FORGOT_PW: (context) => ForgotPasswordPage(),
           ROUTE_RESET_PW: (context) => ResetPasswordPage(
                 dataResetPassword: '',

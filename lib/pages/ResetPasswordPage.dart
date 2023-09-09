@@ -15,7 +15,7 @@ class ResetPasswordPage extends StatefulWidget {
 }
 
 class _ResetPasswordPageState extends State<ResetPasswordPage> {
-  String userId = '';
+  String userEmail = '';
   String token = '';
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _passwordController = TextEditingController();
@@ -34,7 +34,10 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
     if (data != null) {
       setParametersFromQueryString(data);
     } else {
-      Navigator.pushNamed(context, ROUTE_HOME);
+      Navigator.pushNamedAndRemoveUntil(context, ROUTE_HOME, (route) => false);
+    }
+    if (userEmail.isEmpty || token.isEmpty) {
+      Navigator.pushNamedAndRemoveUntil(context, ROUTE_HOME, (route) => false);
     }
     return Scaffold(
       appBar: AppBar(
@@ -147,7 +150,9 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                 child: TextButton(
                   onPressed: () {
                     if (_formKey.currentState!.validate()) {
-                      // TODO salva ed aggiorna la password
+                      doUpdatePassword(_passwordController.text,
+                          _confirmPasswordController.text);
+                      Navigator.pushNamed(context, ROUTE_REDIRECT);
                     } else {
                       // TODO
                     }
@@ -171,7 +176,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
     String decodedString = utf8.decode(decodedBytes);
     List<String> valueSplit = decodedString.split('|');
     if (valueSplit.isEmpty || valueSplit.length != 2) return;
-    userId = valueSplit[0];
+    userEmail = valueSplit[0];
     token = valueSplit[1];
   }
 
@@ -199,6 +204,8 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
     const url = '${API_URL}api/auth/updatepassword';
     final uri = Uri.parse(url);
     Map<String, String> bodyPost = {
+      'token': token,
+      'email': userEmail,
       'password': newPw,
       'confirmPassword': confirmPw
     };
@@ -212,7 +219,6 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
           body: jsonEncode(bodyPost), headers: headersCall);
 
       if (response.statusCode == 200) {
-        Navigator.pushNamed(context, ROUTE_HOME);
       } else {
         // Request failed, handle the error
         print('Request failed with status: ${response.statusCode}');

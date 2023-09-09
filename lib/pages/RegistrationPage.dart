@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:js_interop';
 
 import 'package:flutter/material.dart';
 import 'package:flutterdemo/main.dart';
@@ -71,10 +72,10 @@ class _RegistrationPageState extends State<RegistrationPage> {
       setState(() => _currentStep += 1);
     } else {
       // Recupera il token di accesso
-      final accessToken = await storage.read(key: 'access_token');
+      //final accessToken = await storage.read(key: 'access_token');
 
       // Recupera il token di aggiornamento
-      final refreshToken = await storage.read(key: 'refresh_token');
+      //final refreshToken = await storage.read(key: 'refresh_token');
       // Final step: Register user
       setState(() {
         user.name = _nameController.text;
@@ -93,8 +94,9 @@ class _RegistrationPageState extends State<RegistrationPage> {
       _submitted = true;
       if (_formKeyStep4.currentState!.validate()) {
         print('Il nome inserito ');
-        //doRegister(user);
-        Navigator.pushNamed(context, ROUTE_REDIRECT);
+        doRegister(user);
+        Navigator.popAndPushNamed(context, ROUTE_REDIRECT,
+            arguments: ROUTE_REGISTER);
       } else {
         print('here');
       }
@@ -528,7 +530,8 @@ class _RegistrationPageState extends State<RegistrationPage> {
           print('Request failed with status: ${response.statusCode}');
           return List.empty();
         }
-      } on Exception {
+      } on Exception catch (e) {
+        print(e);
         print("Generic error - getSectors");
         _sectors = List.empty();
       }

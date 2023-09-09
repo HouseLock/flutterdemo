@@ -7,7 +7,8 @@
         {
             "name": "flutterdemo",
             "request": "launch",
-            "type": "dart"
+            "type": "dart",
+            "args": ["-d", "chrome","--web-port", "53715"],
         },
         {
             "name": "flutterdemo (profile mode)",

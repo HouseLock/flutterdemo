@@ -1,14 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutterdemo/AppConst.dart';
 
-class RedirectPage extends StatelessWidget {
+class RedirectPage extends StatefulWidget {
+  final String? fromPage;
+
+  RedirectPage({required this.fromPage});
+
+  @override
+  _RedirectPageState createState() => _RedirectPageState();
+}
+
+class _RedirectPageState extends State<RedirectPage> {
   final int _secondsToWait = 5;
   @override
   Widget build(BuildContext context) {
-    // Delay navigation to the home page by 15 seconds
-    Future.delayed(Duration(seconds: _secondsToWait), () {
-      Navigator.pushNamedAndRemoveUntil(context, ROUTE_HOME, (route) => false);
-    });
+    if (_secondsToWait > 0) {
+      Future.delayed(Duration(seconds: _secondsToWait), () {
+        Navigator.pushNamedAndRemoveUntil(
+            context, ROUTE_HOME, (route) => false);
+      });
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -17,6 +28,7 @@ class RedirectPage extends StatelessWidget {
       body: Center(
         child: Column(
           children: [
+            Text(widget.fromPage!),
             Text(
                 'Se la registrazione è avvenuta con successo riceverai una mail all\' indirizzo email fornito.'),
             Text(
