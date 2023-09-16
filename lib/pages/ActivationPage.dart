@@ -38,7 +38,8 @@ class _ActivationPageState extends State<ActivationPage> {
     doActivation();
     Future.delayed(Duration.zero, () {
       Navigator.pushNamedAndRemoveUntil(
-          context, ROUTE_REDIRECT, (route) => false);
+          context, ROUTE_REDIRECT, (route) => false,
+          arguments: {"fromPage": ROUTE_ACTIVATION});
     });
     return Scaffold(
       appBar: AppBar(

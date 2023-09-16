@@ -71,7 +71,7 @@ class MyApp extends StatelessWidget {
         },
         routes: {
           ROUTE_HOME: (context) => MyHomePage(),
-          ROUTE_REDIRECT: (context) => RedirectPage(fromPage: ''),
+          ROUTE_REDIRECT: (context) => RedirectPage(),
           ROUTE_REGISTER: (context) => RegistrationPage(),
           ROUTE_ACTIVATION: (context) => ActivationPage(
                 dataConfirm: '',

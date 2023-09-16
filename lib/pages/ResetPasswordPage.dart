@@ -152,7 +152,11 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                     if (_formKey.currentState!.validate()) {
                       doUpdatePassword(_passwordController.text,
                           _confirmPasswordController.text);
-                      Navigator.pushNamed(context, ROUTE_REDIRECT);
+                      Future.delayed(Duration.zero, () {
+                        Navigator.pushNamedAndRemoveUntil(
+                            context, ROUTE_REDIRECT, (route) => false,
+                            arguments: {"fromPage": ROUTE_RESET_PW});
+                      });
                     } else {
                       // TODO
                     }

@@ -29,9 +29,10 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           body: jsonEncode(bodyPost), headers: headersCall);
 
       if (response.statusCode == 200) {
-        setState(() {
-          _message =
-              'Un link per il recupero della password è stato inviato al tuo indirizzo email.';
+        Future.delayed(Duration.zero, () {
+          Navigator.pushNamedAndRemoveUntil(
+              context, ROUTE_REDIRECT, (route) => false,
+              arguments: {"fromPage": ROUTE_FORGOT_PW});
         });
       } else {
         setState(() {
