@@ -30,10 +30,11 @@ class _RegistrationPageState extends State<RegistrationPage> {
   final _formKeyStep4 = GlobalKey<FormState>();
 
   final _nameFocusNode = FocusNode();
+  final _surnameFocusNode = FocusNode();
+  final _usernameFocusNode = FocusNode();
+  final _emailFocusNode = FocusNode();
   final _passwordFocusNode = FocusNode();
   final _confirmPasswordFocusNode = FocusNode();
-
-  var _passwordErrorMessage = '';
 
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _surnameController = TextEditingController();
@@ -54,58 +55,129 @@ class _RegistrationPageState extends State<RegistrationPage> {
   int _currentStep = 0;
   List<Step> _steps = List.empty();
   int _currAppRole = -1;
-  bool _submitted = false;
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
   List<Sector> _sectors = List.empty();
 
+  String? _nameError;
+  String? _surnameError;
+  String? _usernameError;
+  String? _emailError;
+  String? _passwordError;
+  String? _confirmPasswordError;
+
   void _onStepTabbed(int stepSelected) {
     if (_currentStep != stepSelected) {
       if (stepSelected < _steps.length) {
-        setState(() => _currentStep = stepSelected);
+        if (stepSelected < _currentStep || isStepValid(stepSelected)) {
+          setState(() => _currentStep = stepSelected);
+        }
       }
     }
   }
 
+  bool isStepValid(int stepSelected) {
+    return _steps[stepSelected].state == StepState.complete;
+  }
+
   Future<void> _onStepContinue() async {
     if (_currentStep < _steps.length - 1) {
-      setState(() => _currentStep += 1);
-    } else {
-      // Recupera il token di accesso
-      //final accessToken = await storage.read(key: 'access_token');
-
-      // Recupera il token di aggiornamento
-      //final refreshToken = await storage.read(key: 'refresh_token');
-      // Final step: Register user
-      setState(() {
-        user.name = _nameController.text;
-        user.surname = _surnameController.text;
-        user.email = _emailController.text;
-        user.password = _passwordController.text;
-        user.businessName = _businessNameController.text;
-        user.pec = _pecController.text;
-        user.taxIDCode = _taxIDCodeController.text;
-        user.vatNumber = _vatNumberController.text;
-        user.sdi = _sdiController.text;
-        user.username = _usernameController.text;
-        // Print user data (for demonstration purposes)
-        print(user.toJson());
-      });
-      _submitted = true;
-      if (_formKeyStep4.currentState!.validate()) {
-        print('Il nome inserito ');
-        doRegister(user);
-        Navigator.popAndPushNamed(context, ROUTE_REDIRECT,
-            arguments: ROUTE_REGISTER);
+      if (_currentStep == 0) {
+        if (_currAppRole >= 0 && _currAppRole <= 1) {
+          updateStepState(_currentStep, StepState.complete);
+          setState(() => _currentStep += 1);
+        } else {
+          updateStepState(_currentStep, StepState.error);
+        }
+      } else if (_currentStep == 1) {
+        if (_formKeyStep1.currentState!.validate()) {
+          updateStepState(_currentStep, StepState.complete);
+          if (_steps[2].state == StepState.disabled) {
+            setState(() => _currentStep += 2);
+          } else {
+            setState(() => _currentStep += 1);
+          }
+        } else {
+          updateStepState(_currentStep, StepState.error);
+        }
+      } else if (_currentStep == 2) {
+        if (_formKeyStep2.currentState!.validate()) {
+          updateStepState(_currentStep, StepState.complete);
+          setState(() => _currentStep += 1);
+        } else {
+          updateStepState(_currentStep, StepState.error);
+        }
       } else {
-        print('here');
+        updateStepState(_currentStep, StepState.complete);
+        setState(() => _currentStep += 1);
+        updateStepState(_currentStep, StepState.editing);
+      }
+    } else {
+      //step finale superato
+      if (_formKeyStep4.currentState!.validate()) {
+        String userValue = _usernameController.value.text;
+        if (userValue.isNotEmpty && userValue.length > 4) {
+          Future<bool> userExists = checkUsernameExists(userValue);
+          if (await userExists) {
+            setState(() {
+              _usernameError = 'Questo user esiste già.';
+            });
+            updateStepState(_currentStep, StepState.error);
+          } else {
+            setState(() {
+              _usernameError = null;
+            });
+          }
+        }
+        if (_usernameError != null) return;
+
+        String emailValue = _emailController.value.text;
+        if (emailValue.isNotEmpty) {
+          Future<bool> emailExists = checkEmailExists(emailValue);
+          if (await emailExists) {
+            setState(() {
+              _emailError = 'Questa email esiste già.';
+            });
+            updateStepState(_currentStep, StepState.error);
+            return;
+          } else {
+            setState(() {
+              _emailError = null;
+            });
+          }
+        }
+        if (_emailError != null) return;
+
+        updateStepState(_currentStep, StepState.complete);
+        setState(() {
+          user.name = _nameController.text;
+          user.surname = _surnameController.text;
+          user.username = _usernameController.text;
+          user.email = _emailController.text;
+          user.password = _passwordController.text;
+          user.businessName = _businessNameController.text;
+          user.pec = _pecController.text;
+          user.taxIDCode = _taxIDCodeController.text;
+          user.vatNumber = _vatNumberController.text;
+          user.sdi = _sdiController.text;
+          print(user.toJson());
+        });
+        doRegister(user);
+      } else {
+        updateStepState(_currentStep, StepState.error);
       }
     }
   }
 
   void _onStepCancel() {
     if (_currentStep > 0) {
-      setState(() => _currentStep -= 1);
+      setState(() {
+        _currentStep -= 1;
+        _steps[_currentStep].state == StepState.disabled
+            ? _currentStep -= 1
+            : null;
+        updateStepState(_currentStep, StepState.editing);
+      });
     }
   }
 
@@ -130,6 +202,19 @@ class _RegistrationPageState extends State<RegistrationPage> {
     ));
   }
 
+  List<StepState> stepStates = [
+    StepState.editing,
+    StepState.indexed,
+    StepState.indexed,
+    StepState.indexed
+  ];
+
+  void updateStepState(int step, StepState state) {
+    setState(() {
+      stepStates[step] = state;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     var stepper = Stepper(
@@ -140,6 +225,8 @@ class _RegistrationPageState extends State<RegistrationPage> {
       controlsBuilder: _controlsBuilder,
       steps: [
         Step(
+            isActive: _currentStep == 0,
+            state: stepStates[0],
             title: Text('Step 1'),
             content: Row(
               children: [
@@ -149,7 +236,11 @@ class _RegistrationPageState extends State<RegistrationPage> {
                   //padding: EdgeInsets.symmetric(horizontal: 15),
                   child: ElevatedButton(
                     onPressed: () {
-                      setState(() => _currAppRole = 0);
+                      setState(() {
+                        _currAppRole = 0;
+                        updateStepState(2, StepState.disabled);
+                      });
+                      //setState(() => _currAppRole = 0);
                     },
                     style: ButtonStyle(
                       backgroundColor: MaterialStateProperty.all<Color>(
@@ -165,7 +256,11 @@ class _RegistrationPageState extends State<RegistrationPage> {
                   //padding: EdgeInsets.symmetric(horizontal: 15),
                   child: ElevatedButton(
                     onPressed: () {
-                      setState(() => _currAppRole = 1);
+                      setState(() {
+                        _currAppRole = 1;
+                        updateStepState(2, StepState.indexed);
+                      });
+                      //setState(() => _currAppRole = 0);
                     },
                     style: ButtonStyle(
                       backgroundColor: MaterialStateProperty.all<Color>(
@@ -179,6 +274,8 @@ class _RegistrationPageState extends State<RegistrationPage> {
             ),
             subtitle: Text('Ruolo')),
         Step(
+          isActive: _currentStep == 1,
+          state: stepStates[1],
           title: Text('Step 2'),
           content: Form(
             key: _formKeyStep1,
@@ -191,18 +288,23 @@ class _RegistrationPageState extends State<RegistrationPage> {
                   child: TextFormField(
                     decoration: InputDecoration(
                       border: OutlineInputBorder(),
-                      labelText: 'Nome',
+                      errorText: _nameError,
+                      labelText: 'Nome *',
                       hintText: '',
                     ),
                     controller: _nameController,
                     focusNode: _nameFocusNode,
                     validator: (value) {
-                      // La funzione validator viene eseguita quando si tenta di inviare i dati del modulo.
                       if (value == null || value.isEmpty) {
-                        _nameFocusNode.requestFocus();
-                        return 'Questo campo è obbligatorio'; // Messaggio di errore se il campo è vuoto
+                        setState(() {
+                          _nameError = 'Questo campo è obbligatorio';
+                        });
+                      } else {
+                        setState(() {
+                          _nameError = null;
+                        });
                       }
-                      return null; // Il campo è valido, nessun messaggio di errore
+                      return _nameError;
                     },
                   ),
                 ),
@@ -210,12 +312,26 @@ class _RegistrationPageState extends State<RegistrationPage> {
                   padding: const EdgeInsets.only(
                       left: 15.0, right: 15.0, top: 15, bottom: 0),
                   //padding: EdgeInsets.symmetric(horizontal: 15),
-                  child: TextField(
+                  child: TextFormField(
                     decoration: InputDecoration(
                         border: OutlineInputBorder(),
-                        labelText: 'Cognome',
+                        errorText: _surnameError,
+                        labelText: 'Cognome *',
                         hintText: ''),
                     controller: _surnameController,
+                    focusNode: _surnameFocusNode,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        setState(() {
+                          _surnameError = 'Questo campo è obbligatorio';
+                        });
+                      } else {
+                        setState(() {
+                          _surnameError = null;
+                        });
+                      }
+                      return _surnameError;
+                    },
                   ),
                 ),
                 Padding(
@@ -237,6 +353,8 @@ class _RegistrationPageState extends State<RegistrationPage> {
           subtitle: Text('Dati personali'),
         ),
         Step(
+          isActive: _currentStep == 2,
+          state: stepStates[2],
           title: Text('Step 3'),
           content: Column(
             children: [
@@ -247,7 +365,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                 child: TextField(
                   decoration: InputDecoration(
                     border: OutlineInputBorder(),
-                    labelText: 'P.Iva',
+                    labelText: 'P.Iva *',
                     hintText: '',
                   ),
                   controller: _vatNumberController,
@@ -314,6 +432,8 @@ class _RegistrationPageState extends State<RegistrationPage> {
           subtitle: Text('Dati aziendali'),
         ),
         Step(
+          isActive: _currentStep == 3,
+          state: stepStates[3],
           title: Text('Step 4'),
           content: Form(
             key: _formKeyStep4,
@@ -323,24 +443,85 @@ class _RegistrationPageState extends State<RegistrationPage> {
                   padding: const EdgeInsets.only(
                       left: 15.0, right: 15.0, top: 15, bottom: 0),
                   //padding: EdgeInsets.symmetric(horizontal: 15),
-                  child: TextField(
+                  child: TextFormField(
                     decoration: InputDecoration(
                         border: OutlineInputBorder(),
-                        labelText: 'Username',
+                        errorText: _usernameError,
+                        labelText: 'Username *',
                         hintText: ''),
                     controller: _usernameController,
+                    focusNode: _usernameFocusNode,
+                    onFieldSubmitted: (value) async {
+                      //String value = _usernameController.text;
+                      if (value.isNotEmpty && value.length > 4) {
+                        Future<bool> userExists = checkUsernameExists(value);
+                        if (await userExists) {
+                          setState(() {
+                            _usernameError = 'Questo user esiste già.';
+                          });
+                        } else {
+                          setState(() {
+                            _usernameError = null;
+                          });
+                        }
+                      }
+                    },
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        setState(() {
+                          _usernameError = 'Questo campo è obbligatorio.';
+                        });
+                      } else if (value.length < 4) {
+                        setState(() {
+                          _usernameError =
+                              'Valore non valido, l\'username deve essere di almeno 4 caratteri.';
+                        });
+                      } else {
+                        _usernameError = null;
+                      }
+                      return _usernameError;
+                    },
                   ),
                 ),
                 Padding(
                   padding: const EdgeInsets.only(
                       left: 15.0, right: 15.0, top: 15, bottom: 0),
                   //padding: EdgeInsets.symmetric(horizontal: 15),
-                  child: TextField(
+                  child: TextFormField(
                     decoration: InputDecoration(
                         border: OutlineInputBorder(),
-                        labelText: 'Email',
+                        errorText: _emailError,
+                        labelText: 'Email *',
                         hintText: ''),
                     controller: _emailController,
+                    focusNode: _emailFocusNode,
+                    onEditingComplete: () async {
+                      String value = _emailController.text;
+                      if (value.isNotEmpty && value.length > 4) {
+                        Future<bool> emailExists = checkEmailExists(value);
+                        if (await emailExists) {
+                          setState(() {
+                            _emailError = 'Questa email esiste già';
+                          });
+                        } else {
+                          setState(() {
+                            _emailError = null;
+                          });
+                        }
+                      }
+                    },
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        setState(() {
+                          _emailError = 'Questo campo è obbligatorio';
+                        });
+                      } else {
+                        setState(() {
+                          _emailError = null;
+                        });
+                      }
+                      return _emailError;
+                    },
                   ),
                 ),
                 Padding(
@@ -351,7 +532,8 @@ class _RegistrationPageState extends State<RegistrationPage> {
                     obscureText: !_isPasswordVisible,
                     decoration: InputDecoration(
                       border: OutlineInputBorder(),
-                      labelText: 'Password',
+                      errorText: _passwordError,
+                      labelText: 'Password *',
                       hintText: '',
                       suffixIcon: Row(
                         mainAxisAlignment:
@@ -396,12 +578,12 @@ class _RegistrationPageState extends State<RegistrationPage> {
                     focusNode: _passwordFocusNode,
                   ),
                 ),
-                if (_formKeyStep4.currentState != null &&
+                /*if (_formKeyStep4.currentState != null &&
                     !_formKeyStep4.currentState!.validate())
                   Text(
                     _passwordErrorMessage,
                     style: TextStyle(color: Colors.red),
-                  ),
+                  ),*/
                 Padding(
                   padding: const EdgeInsets.only(
                       left: 15.0, right: 15.0, top: 15, bottom: 0),
@@ -410,7 +592,8 @@ class _RegistrationPageState extends State<RegistrationPage> {
                     obscureText: !_isConfirmPasswordVisible,
                     decoration: InputDecoration(
                       border: OutlineInputBorder(),
-                      labelText: 'Conferma password',
+                      errorText: _confirmPasswordError,
+                      labelText: 'Conferma password *',
                       hintText: '',
                       suffixIcon: Row(
                         mainAxisAlignment:
@@ -439,7 +622,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
                       ),
                     ),
                     controller: _confirmPasswordController,
-                    validator: validatePassword,
+                    validator: validateConfirmPassword,
                     focusNode: _confirmPasswordFocusNode,
                   ),
                 ),
@@ -584,6 +767,62 @@ class _RegistrationPageState extends State<RegistrationPage> {
     );
   }
 
+  Future<bool> checkEmailExists(String value) async {
+    const url = '${API_URL}api/auth/emailinuse';
+    final uri = Uri.parse(url);
+    if (value.startsWith('"')) value = value.substring(1);
+    if (value.endsWith('"')) value = value.substring(0, (value.length - 1));
+    String bodyPost = value;
+    Map<String, String> headersCall = {
+      'Access-Control-Allow-Origin': '*',
+      'Content-Type': 'application/json',
+      'Accept': '*/*'
+    };
+    try {
+      final response = await http.post(uri,
+          body: jsonEncode(bodyPost), headers: headersCall);
+
+      if (response.statusCode == 200) {
+        final body = response.body;
+        return body == 'true';
+      } else {
+        // Request failed, handle the error
+        print('Request failed with status: ${response.statusCode}');
+      }
+    } on Exception {
+      print("Generic error - checkEmailExists");
+    }
+    return false;
+  }
+
+  Future<bool> checkUsernameExists(String value) async {
+    const url = '${API_URL}api/auth/usernameinuse';
+    final uri = Uri.parse(url);
+    if (value.startsWith('"')) value = value.substring(1);
+    if (value.endsWith('"')) value = value.substring(0, (value.length - 1));
+    String bodyPost = value;
+    Map<String, String> headersCall = {
+      'Access-Control-Allow-Origin': '*',
+      'Content-Type': 'application/json',
+      'Accept': '*/*'
+    };
+    try {
+      final response = await http.post(uri,
+          body: jsonEncode(bodyPost), headers: headersCall);
+
+      if (response.statusCode == 200) {
+        final body = response.body;
+        return body == 'true';
+      } else {
+        // Request failed, handle the error
+        print('Request failed with status: ${response.statusCode}');
+      }
+    } on Exception {
+      print("Generic error - checkUsernameExists");
+    }
+    return false;
+  }
+
   void doRegister(User user) async {
     const url = '${API_URL}api/auth/register';
     final uri = Uri.parse(url);
@@ -611,20 +850,43 @@ class _RegistrationPageState extends State<RegistrationPage> {
   }
 
   String? validatePassword(String? value) {
-    if (!_submitted) return null;
-    String error = '';
     if (value == null || value.isEmpty) {
-      error = 'Inserisci una password';
-      _passwordErrorMessage = error;
-      return error;
+      setState(() {
+        _passwordError = 'Inserisci una password';
+      });
+    } else if (!isPasswordValid(value)) {
+      setState(() {
+        _passwordError =
+            'La password deve essere di minimo 8 caratteri, contenere almeno una lettera maiuscola, una minuscola, un numero e un carattere speciale.';
+      });
+    } else {
+      setState(() {
+        _passwordError = null;
+      });
     }
-    if (!isPasswordValid(value)) {
-      error =
-          'La password deve essere di minimo 8 caratteri, contenere almeno una lettera maiuscola, una minuscola, un numero e un carattere speciale.';
-      _passwordErrorMessage = error;
-      return error;
+    return _passwordError;
+  }
+
+  String? validateConfirmPassword(String? value) {
+    if (value == null || value.isEmpty) {
+      setState(() {
+        _confirmPasswordError = 'Inserisci una password';
+      });
+    } else if (!isPasswordValid(value)) {
+      setState(() {
+        _confirmPasswordError =
+            'La password deve essere di minimo 8 caratteri, contenere almeno una lettera maiuscola, una minuscola, un numero e un carattere speciale.';
+      });
+    } else if (value != _passwordController.text) {
+      setState(() {
+        _confirmPasswordError = 'Le password non sono uguali.';
+      });
+    } else {
+      setState(() {
+        _confirmPasswordError = null;
+      });
     }
-    return null; // The value is valid
+    return _confirmPasswordError;
   }
 
   bool isPasswordValid(String password) {

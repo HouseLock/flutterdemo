@@ -7,3 +7,4 @@ const String ROUTE_HOME = '/home';
 const String ROUTE_FORGOT_PW = '/forgotpassword';
 const String ROUTE_RESET_PW = '/resetpassword';
 const String ROUTE_ACTIVATION = '/confirmactivation';
+const String ROUTE_INDEX = '/index';

@@ -2,9 +2,11 @@ import 'dart:convert';
 import 'package:english_words/english_words.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutterdemo/models/AuthProvider.dart';
 import 'package:flutterdemo/models/Sector.dart';
 import 'package:flutterdemo/pages/ActivationPage.dart';
 import 'package:flutterdemo/pages/ForgotPasswordPage.dart';
+import 'package:flutterdemo/pages/IndexPage.dart';
 import 'package:flutterdemo/pages/RedirectPage.dart';
 import 'package:flutterdemo/pages/ResetPasswordPage.dart';
 import 'package:provider/provider.dart';
@@ -26,16 +28,16 @@ void main() {
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
   @override
   Widget build(BuildContext context) {
-    Map<String, String> initialParams = _getInitialParamsFromUrl();
-    return ChangeNotifierProvider(
-      create: (context) => MyAppState(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(
+          create: (context) => AuthProvider(),
+        ),
+      ],
       child: MaterialApp(
-        title: 'CliMan',
-        initialRoute: '/',
+        title: 'Climan',
         theme: ThemeData(
           useMaterial3: true,
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepOrange),
@@ -69,6 +71,7 @@ class MyApp extends StatelessWidget {
 
           return null; // Gestisci le altre rotte qui se necessario
         },
+        initialRoute: '/',
         routes: {
           ROUTE_HOME: (context) => MyHomePage(),
           ROUTE_REDIRECT: (context) => RedirectPage(),
@@ -80,35 +83,10 @@ class MyApp extends StatelessWidget {
           ROUTE_RESET_PW: (context) => ResetPasswordPage(
                 dataResetPassword: '',
               ),
+          ROUTE_INDEX: (context) => IndexPage(),
         },
       ),
     );
-  }
-
-  Map<String, String> _getInitialParamsFromUrl() {
-    // Recupera l'URL all'avvio dell'app
-    final uri = Uri.base;
-    return uri.queryParameters;
-  }
-}
-
-class MyAppState extends ChangeNotifier {
-  var current = WordPair.random();
-
-  void getNext() {
-    current = WordPair.random();
-    notifyListeners();
-  }
-
-  var favorites = <WordPair>[];
-
-  void toggleFavorite() {
-    if (favorites.contains(current)) {
-      favorites.remove(current);
-    } else {
-      favorites.add(current);
-    }
-    notifyListeners();
   }
 }
 
@@ -123,6 +101,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   final _formKey = GlobalKey<FormState>();
   FocusNode _emailFocusNode = FocusNode();
+  FocusNode _passwordFocusNode = FocusNode();
 
   @override
   Widget build(BuildContext context) {
@@ -143,8 +122,8 @@ class _MyHomePageState extends State<MyHomePage> {
                     width: 200,
                     height: 150,
                     /*decoration: BoxDecoration(
-                            color: Colors.red,
-                            borderRadius: BorderRadius.circular(50.0)),*/
+                              color: Colors.red,
+                              borderRadius: BorderRadius.circular(50.0)),*/
                   ),
                 ),
               ),
@@ -170,6 +149,13 @@ class _MyHomePageState extends State<MyHomePage> {
                       labelText: 'Password',
                       hintText: 'Password...'),
                   controller: passwordController,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      _passwordFocusNode.requestFocus();
+                      return 'Questo campo è obbligatorio';
+                    }
+                    return null;
+                  },
                 ),
               ),
               TextButton(
@@ -188,14 +174,13 @@ class _MyHomePageState extends State<MyHomePage> {
                     color: Colors.blue,
                     borderRadius: BorderRadius.circular(20)),
                 child: TextButton(
-                  onPressed: () {
+                  onPressed: () async {
                     if (_formKey.currentState!.validate()) {
                       print('Il nome inserito ');
-                      doLogin(emailController.text, passwordController.text);
-                      Navigator.pushNamed(context, ROUTE_HOME);
-                      // TODO navigate to home Navigator.pushNamed(context, '/redirect');
+                      doLogin(emailController.text, passwordController.text,
+                          context);
                     } else {
-                      _emailFocusNode.requestFocus();
+                      //_emailFocusNode.requestFocus();
                     }
                   },
                   child: Text(
@@ -250,7 +235,7 @@ bool isEmailValid(String email) {
   return emailRegex.hasMatch(email);
 }
 
-void doLogin(String email, String password) async {
+void doLogin(String email, String password, BuildContext context) async {
   String test = email;
   String test2 = password;
   const url = '${API_URL}api/auth/login';
@@ -261,123 +246,34 @@ void doLogin(String email, String password) async {
     'Content-Type': 'application/json',
     'Accept': '*/*'
   };
-  final response =
-      await http.post(uri, body: jsonEncode(bodyPost), headers: headersCall);
+  try {
+    final response =
+        await http.post(uri, body: jsonEncode(bodyPost), headers: headersCall);
 
-  if (response.statusCode == 200) {
-    final body = response.body;
-    final json = jsonDecode(body);
-    //users = json['results'];
-    String accessToken = json['accessToken'];
-    String refreshToken = json['refreshToken'];
-    // Salva il token di accesso
-    await storage.write(key: 'access_token', value: accessToken);
+    if (response.statusCode == 200) {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final body = response.body;
+      final json = jsonDecode(body);
+      //users = json['results'];
+      String accessToken = json['accessToken'];
+      String refreshToken = json['refreshToken'];
+      // Salva il token di accesso
+      await storage.write(key: 'access_token', value: accessToken);
 
-    // Salva il token di aggiornamento
-    await storage.write(key: 'refresh_token', value: refreshToken);
-  } else {
-    // Request failed, handle the error
-    print('Request failed with status: ${response.statusCode}');
-  }
-}
+      // Salva il token di aggiornamento
+      await storage.write(key: 'refresh_token', value: refreshToken);
 
-class GeneratorPage extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    var appState = context.watch<MyAppState>();
-    var pair = appState.current;
-
-    IconData icon;
-    if (appState.favorites.contains(pair)) {
-      icon = Icons.favorite;
+      authProvider.accessToken = accessToken;
+      authProvider.refreshToken = refreshToken;
+      Future.delayed(Duration.zero, () {
+        Navigator.pushNamed(context, ROUTE_INDEX);
+      });
     } else {
-      icon = Icons.favorite_border;
+      // Request failed, handle the error
+      print('Request failed with status: ${response.statusCode}');
     }
-
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          BigCard(pair: pair),
-          SizedBox(height: 10),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ElevatedButton.icon(
-                onPressed: () {
-                  appState.toggleFavorite();
-                },
-                icon: Icon(icon),
-                label: Text('Like'),
-              ),
-              SizedBox(width: 10),
-              ElevatedButton(
-                onPressed: () {
-                  appState.getNext();
-                },
-                child: Text('Next'),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class FavoritesPage extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    var appState = context.watch<MyAppState>();
-
-    if (appState.favorites.isEmpty) {
-      return Center(
-        child: Text('No favorites yet.'),
-      );
-    }
-
-    return ListView(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(20),
-          child: Text('You have '
-              '${appState.favorites.length} favorites:'),
-        ),
-        for (var pair in appState.favorites)
-          ListTile(
-            leading: Icon(Icons.favorite),
-            title: Text(pair.asLowerCase),
-          )
-      ],
-    );
-  }
-}
-
-class BigCard extends StatelessWidget {
-  const BigCard({
-    super.key,
-    required this.pair,
-  });
-
-  final WordPair pair;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final style = theme.textTheme.displayMedium!.copyWith(
-      color: theme.colorScheme.onPrimary,
-    );
-
-    return Card(
-      color: theme.colorScheme.primary,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Text(
-          pair.asLowerCase,
-          style: style,
-          semanticsLabel: "${pair.first} ${pair.second}",
-        ),
-      ),
-    );
+  } on Exception catch (e) {
+    print(e);
+    print("Generic error - doLogin");
   }
 }
